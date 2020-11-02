@@ -1,0 +1,86 @@
+---
+output: html_document
+---
+<h3> <center> Appendix </center> </h3>
+  
+Below are the libraries and data used for this analysis. 
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(broom)
+
+# Loading in the cleaned survey Data
+survey_data <- read_csv("/Users/celinekim/Desktop/ps3/survey_data.csv")
+
+# Loading in the cleaned census Data
+census_data <- read_csv("/Users/celinekim/Desktop/ps3/census_data.csv")
+```
+
+Below is the initial model created for the analysis. The explanatory variables
+used in this initial model are is_working, gender, census_region, hispanic,
+is_white, is_black, is_american_indian, is_asian_or_pacific_islander, age_group
+and us_born. The variables that have been excluded in the final report are
+census_region, is_american_indian and is_asian_or_pacific_islander. 
+
+```{r}
+# The initial model
+initial_model<-glm(as.factor(vote_trump_2020) ~  as.factor(is_working) + 
+                     as.factor(gender) + as.factor(census_region) + 
+                     as.factor(hispanic) + as.factor(is_white) + 
+                     as.factor(is_black) + as.factor(is_american_indian) + 
+               as.factor(is_asian_or_pacific_islander) + as.factor(age_group) +
+             as.factor(us_born), data=survey_data, family="binomial")
+```
+
+Below is the summary data of the initial model that was not included in the 
+final report.
+```{r}
+# Model Results
+broom::tidy(initial_model)
+```
+
+Below is the logistic regression model used for the analysis in the final 
+report.
+
+```{r}
+# Creating the Model
+model <- glm(as.factor(vote_trump_2020) ~  as.factor(is_working) + 
+             as.factor(gender) + as.factor(hispanic) + as.factor(is_white) + 
+             as.factor(is_black) + as.factor(age_group) + as.factor(us_born), 
+           data=survey_data, family="binomial")
+```
+
+Below is the post-stratification analysis.
+```{r}
+# Here I will perform the post-stratification calculation
+census_data$estimate <-
+  model %>%
+  predict(newdata = census_data)
+
+census_data <- census_data %>%
+  mutate(trump_predict_prop = estimate*cell_prop_of_division_total)
+
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+trump_predict_overall <- sum(census_data[, 'trump_predict_prop'], na.rm=TRUE)
+trump_predict_overall_prob <- logit2prob(trump_predict_overall)
+```
+
+
+#### Table 3: Results of Additional Analysis Performed Per State Basis
+```{r, echo=FALSE, message=FALSE}
+additional_data <-
+census_data %>%
+  mutate(trump_predict_prop_state = 
+           estimate*cell_prop_of_division_total_state) %>%
+  group_by(state) %>%
+  summarise(trump_predict_state = sum(trump_predict_prop_state), 
+            trump_predict_state_prob = logit2prob(trump_predict_state))
+
+print(additional_data, n = 50)
+```
+
